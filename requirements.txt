@@ -1,0 +1,3 @@
+fastapi
+uvicorn
+# -e ./packages/diablex-backend  # Commented out due to TOML parsing error
