@@ -1,3 +1,20 @@
 fastapi
-uvicorn
-# -e ./packages/diablex-backend  # Commented out due to TOML parsing error
+uvicorn[standard]
+pydantic
+python-dotenv
+requests
+
+# choose DB stack; for example Mongo:
+motor
+
+# OR SQLAlchemy instead:
+# sqlalchemy
+# psycopg2-binary
+
+# for auth / security:
+passlib[bcrypt]
+python-jose[cryptography]
+
+# testing
+pytest
+httpx

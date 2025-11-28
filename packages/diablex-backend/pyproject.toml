@@ -1,16 +1,31 @@
-﻿[build-system]
-requires = ["setuptools>=68","wheel"]
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "diablex-backend"
-version = "0.0.0"
-description = "Backend engine for Diablex (scaffold placeholder)."
+version = "0.1.0"
+description = "Core backend domain, services, and db layer for Diablex"
 readme = "README.md"
-requires-python = ">=3.10"
-license = {text = "MIT"}
-authors = [{name="Diablex Team"}]
-dependencies = []
+requires-python = ">=3.9"
+authors = [
+  { name = "Fenil Miteshkumar Modi", email = "example@example.com" }
+]
+
+# Add real deps later; for now keep it minimal & safe
+dependencies = [
+  "fastapi",
+  "pydantic>=2",
+  "uvicorn[standard]",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
 
 [tool.setuptools.packages.find]
 where = ["."]
