@@ -1,22 +1,84 @@
-﻿# Python
-.venv/
+﻿# ----------------------------
+# Python
+# ----------------------------
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.eggs/
+*.manifest
+*.spec
+.Python
 .pytest_cache/
+.mypy_cache/
+.cache/
 dist/
 build/
-*.egg-info/
+*.log
 
-# Node
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Byte-compiled / optimized / DLL files
+*.dll
+*.dylib
+*.exe
+
+# ----------------------------
+# Node.js / React
+# ----------------------------
 node_modules/
-pnpm-lock.yaml
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+.next/
+out/
+dist/
+build/
+.cache/
+.eslintcache
 
-# Env
+# Vite
+.vite/
+vite.config.ts.timestamp
+
+# ----------------------------
+# Environment & Secrets
+# ----------------------------
 .env
 .env.*
+*.pem
+*.key
+*.crt
+secrets.json
 
-# OS
-.DS_Store
-
+# ----------------------------
 # VS Code
-.vscode/*.log
+# ----------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ----------------------------
+# Mac / Windows system files
+# ----------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ----------------------------
+# Misc
+# ----------------------------
+*.tmp
+*.temp
+*.swp
+*.bak
