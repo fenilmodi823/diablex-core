@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const Patient = require('../models/Patient');
+const { run, query } = require('../lib/db');
 
 // GET all patients
 router.get('/', async (req, res) => {
   try {
-    const patients = await Patient.find();
+    const patients = await query('SELECT * FROM patients');
     res.json(patients);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -14,46 +14,52 @@ router.get('/', async (req, res) => {
 
 // POST new patient
 router.post('/', async (req, res) => {
-  const patient = new Patient({
-    name: req.body.name,
-    age: req.body.age,
-    type: req.body.type,
-    gi: req.body.gi,
-    risk: req.body.risk,
-  });
+  const { id, name, age, type, status, deviceId, risk } = req.body;
+
+  if (!id || !name) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
 
   try {
-    const newPatient = await patient.save();
-    res.status(201).json(newPatient);
+    await run(
+      `INSERT INTO patients (id, name, age, type, status, device_id, risk_level) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, name, age || null, type || 'T1D', status || 'Active', deviceId || null, risk || 'Low']
+    );
+    res.status(201).json({ id, name, age, type, status, deviceId, risk });
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+});
+
+// DELETE patient
+router.delete('/:id', async (req, res) => {
+  try {
+    const patientId = req.params.id;
+
+    // Delete associated readings first (optional if CASCADE is set, but SQLite default off)
+    await run(`DELETE FROM readings WHERE patient_id = ?`, [patientId]);
+
+    // Delete patient
+    const result = await run(`DELETE FROM patients WHERE id = ?`, [patientId]);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+
+    res.json({ message: 'Patient deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
 // GET single patient
 router.get('/:id', async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id);
-    if (!patient) return res.status(404).json({ message: 'Patient not found' });
-    res.json(patient);
+    const patients = await query('SELECT * FROM patients WHERE id = ?', [req.params.id]);
+    if (patients.length === 0) return res.status(404).json({ message: 'Patient not found' });
+    res.json(patients[0]);
   } catch (err) {
     res.status(500).json({ message: err.message });
-  }
-});
-
-// UPDATE patient plan (Doctor feature)
-router.patch('/:id/plan', async (req, res) => {
-  try {
-    const patient = await Patient.findById(req.params.id);
-    if (!patient) return res.status(404).json({ message: 'Patient not found' });
-
-    if (req.body.diet) patient.plan.diet = req.body.diet;
-    if (req.body.meds) patient.plan.meds = req.body.meds;
-
-    const updatedPatient = await patient.save();
-    res.json(updatedPatient);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
   }
 });
 

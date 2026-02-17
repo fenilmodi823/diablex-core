@@ -1,113 +1,100 @@
-const fs = require('fs');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, '../data/db.json');
+const dbPath = path.resolve(__dirname, '../../diablex.db');
 
-// Initialize DB if not exists
-if (!fs.existsSync(DB_PATH)) {
-  fs.writeFileSync(DB_PATH, JSON.stringify({ patients: [], readings: [], reports: [] }, null, 2));
-}
-
-class JsonDB {
-  constructor(collection) {
-    this.collection = collection;
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Error opening database', err.message);
+  } else {
+    console.log('Connected to the SQLite database.');
+    initSchema();
   }
+});
 
-  _read() {
-    return JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
-  }
+function initSchema() {
+  db.serialize(() => {
+    // Patients Table
+    db.run(`CREATE TABLE IF NOT EXISTS patients (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      age INTEGER,
+      type TEXT,
+      status TEXT,
+      device_id TEXT,
+      risk_level TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
 
-  _write(data) {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-  }
+    // Devices Table
+    db.run(`CREATE TABLE IF NOT EXISTS devices (
+      serial_no TEXT PRIMARY KEY,
+      user_id TEXT,
+      fw_version TEXT,
+      last_sync DATETIME,
+      FOREIGN KEY(user_id) REFERENCES patients(id)
+    )`);
 
-  async find(query = {}) {
-    const data = this._read();
-    const items = data[this.collection] || [];
-    
-    // Simple filtering
-    return items.filter(item => {
-      return Object.keys(query).every(key => item[key] === query[key]);
+    // Readings Table (Time-Series)
+    db.run(`CREATE TABLE IF NOT EXISTS readings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      patient_id TEXT,
+      timestamp INTEGER,
+      value REAL,
+      type TEXT,
+      device_id TEXT,
+      seq INTEGER,
+      battery REAL,
+      mode TEXT,
+      status TEXT,
+      fw TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(patient_id) REFERENCES patients(id)
+    )`);
+
+    // Create index for faster time-range queries
+    db.run(`CREATE INDEX IF NOT EXISTS idx_readings_patient_time ON readings(patient_id, timestamp)`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_readings_device_time ON readings(device_id, timestamp)`);
+
+    // Migrations: Add columns if they don't exist
+    const migrationSql = [
+      "ALTER TABLE readings ADD COLUMN seq INTEGER",
+      "ALTER TABLE readings ADD COLUMN battery REAL",
+      "ALTER TABLE readings ADD COLUMN mode TEXT",
+      "ALTER TABLE readings ADD COLUMN status TEXT",
+      "ALTER TABLE readings ADD COLUMN fw TEXT",
+      // Patients Table Migrations
+      "ALTER TABLE patients ADD COLUMN age INTEGER",
+      "ALTER TABLE patients ADD COLUMN type TEXT",
+      "ALTER TABLE patients ADD COLUMN status TEXT",
+      "ALTER TABLE patients ADD COLUMN device_id TEXT"
+    ];
+
+    migrationSql.forEach(sql => {
+      db.run(sql, (err) => {
+        // Ignore "duplicate column name" error which happens if column exists
+      });
     });
-  }
-
-  async findById(id) {
-    const data = this._read();
-    const items = data[this.collection] || [];
-    return items.find(item => item._id === id);
-  }
-
-  async save(item) {
-    const data = this._read();
-    if (!data[this.collection]) data[this.collection] = [];
-    
-    const newItem = { ...item, _id: Date.now().toString(), createdAt: new Date() };
-    data[this.collection].push(newItem);
-    this._write(data);
-    return newItem;
-  }
-  
-  // Helper to mimic Mongoose model instance save
-  static createModel(collection) {
-    const db = new JsonDB(collection);
-    
-    // Return a class that mimics Mongoose Model
-    return class Model {
-      constructor(data) {
-        Object.assign(this, data);
-      }
-
-      async save() {
-        const data = db._read();
-        if (!data[collection]) data[collection] = [];
-
-        // Update if exists, else create
-        if (this._id) {
-          const idx = data[collection].findIndex(x => x._id === this._id);
-          if (idx !== -1) {
-            data[collection][idx] = { ...this }; // Update
-            db._write(data);
-            return this;
-          }
-        }
-
-        // Create new
-        this._id = Date.now().toString();
-        this.createdAt = new Date();
-        data[collection].push(this);
-        db._write(data);
-        return this;
-      }
-
-      static async find(query = {}) {
-        const data = db._read();
-        let items = data[collection] || [];
-        
-        // Handle sort/limit via chaining mock (simplified)
-        const result = items.filter(item => {
-           return Object.keys(query).every(key => item[key] === query[key]);
-        });
-        
-        // Mock sort/limit methods
-        result.sort = (fnOrObj) => {
-             if (typeof fnOrObj === 'object') {
-                 // Simple sort support for { ts: -1 } or { date: -1 }
-                 const key = Object.keys(fnOrObj)[0];
-                 const dir = fnOrObj[key];
-                 result.sort((a, b) => (a[key] > b[key] ? dir : -dir));
-             }
-             return result;
-        };
-        result.limit = (n) => result.slice(0, n);
-        
-        return result;
-      }
-
-      static async findById(id) {
-        return db.findById(id).then(data => data ? new Model(data) : null);
-      }
-    };
-  }
+  });
 }
 
-module.exports = JsonDB;
+// Wrapper for async/await support
+const query = (sql, params = []) => {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+};
+
+const run = (sql, params = []) => {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+};
+
+module.exports = { db, query, run };

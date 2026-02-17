@@ -1,82 +1,112 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, User } from 'lucide-react';
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { Stethoscope, Lock, Mail, ArrowRight } from "lucide-react";
 
-export function LoginPage() {
+export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const { login } = useAuth();
-  const [selectedDoc, setSelectedDoc] = useState('1');
-  const [code, setCode] = useState('');
-  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || "/";
 
-  const handleLogin = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (login(selectedDoc, code)) {
-      setError('');
-    } else {
-      setError('Invalid 2FA Code (Try 123456)');
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      await login(email, password);
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError("Failed to sign in. Please allow any credentials for demo.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
-            <ShieldCheck size={32} />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl border border-gray-100">
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+            <Stethoscope className="h-8 w-8 text-blue-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Diablex Secure Login</h1>
-          <p className="text-gray-500 mt-2">Select your profile and enter 2FA code</p>
+          <h2 className="text-3xl font-extrabold text-gray-900">
+            Sign in to Diablex
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Clinical Monitoring Platform
+          </p>
         </div>
-
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Profile</label>
-            <div className="grid grid-cols-1 gap-3">
-              {[
-                { id: '1', name: 'Dr. Dhruv', role: 'Endocrinologist' },
-                { id: '2', name: 'Dr. Sarah', role: 'Diabetologist' },
-                { id: '3', name: 'Dr. Mike', role: 'General Physician' },
-              ].map((doc) => (
-                <div
-                  key={doc.id}
-                  onClick={() => setSelectedDoc(doc.id)}
-                  className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                    selectedDoc === doc.id
-                      ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
-                      : 'border-gray-200 hover:border-blue-200'
-                  }`}
-                >
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                    <User size={20} />
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900">{doc.name}</div>
-                    <div className="text-xs text-gray-500">{doc.role}</div>
-                  </div>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="email-address" className="sr-only">Email address</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400" />
                 </div>
-              ))}
+                <input
+                  id="email-address"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="appearance-none rounded-lg relative block w-full pl-10 px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="password" className="sr-only">Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  className="appearance-none rounded-lg relative block w-full pl-10 px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
+          {error && (
+            <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded-lg border border-red-100">
+              {error}
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">2FA Code</label>
-            <input
-              type="text"
-              maxLength={6}
-              placeholder="000000"
-              className="w-full text-center text-2xl tracking-widest py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-            {error && <div className="text-red-500 text-sm mt-2 text-center">{error}</div>}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white ${isSubmitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-lg shadow-blue-500/30`}
+            >
+              <span className="absolute left-0 inset-y-0 flex items-center pl-3">
+                {!isSubmitting && <ArrowRight className="h-5 w-5 text-blue-500 group-hover:text-blue-400" />}
+              </span>
+              {isSubmitting ? 'Signing in...' : 'Sign in'}
+            </button>
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
-          >
-            Verify & Login
-          </button>
+          <div className="text-center text-xs text-gray-400 mt-4">
+            Enter any email/password to demo
+          </div>
         </form>
       </div>
     </div>

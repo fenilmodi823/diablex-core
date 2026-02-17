@@ -1,110 +1,144 @@
-import React, { useMemo, useEffect } from 'react';
-import { Users, ShieldCheck, Activity, HeartPulse } from 'lucide-react';
-import { KPICard } from '../components/KPICard';
-import { ActiveUpdatesTable } from '../components/ActiveUpdatesTable';
-import { PatientDetails } from '../components/PatientDetails';
-import { WeeklyChart } from '../components/WeeklyChart';
-import { MonthlyChart } from '../components/MonthlyChart';
-import { DeviceSimulator } from '../components/DeviceSimulator';
-import { DeviceBus } from '../lib/deviceBus';
-import { api } from '../lib/api';
+import { useState, useEffect } from "react";
+import { ChevronDown, AlertCircle } from "lucide-react";
+import StatsCards from "../components/StatsCards";
+import GlucoseChart from "../components/GlucoseChart";
+import { useGlucoseData } from "../hooks/useGlucoseData";
 
-export function Dashboard({ state, setState }) {
-  const { patients, updates, weekly, monthly } = state;
-  const totals = useMemo(() => {
-    const total = patients.length;
-    const uncontrolled = patients.filter(
-      (p) => (p.last?.value ?? 0) > 180 || p.gi > 8
-    ).length;
-    const type2 = patients.filter((p) => p.type.includes('2')).length;
-    const highRisk = patients.filter((p) => p.risk === 'High').length;
-    return { total, uncontrolled, type2, highRisk };
-  }, [patients]);
+const API_URL = "http://localhost:5050/api/patients";
 
+export default function Dashboard() {
+  const [patients, setPatients] = useState([]);
+  const [selectedPatientId, setSelectedPatientId] = useState("");
+  const [loadingPatients, setLoadingPatients] = useState(true);
+
+  // Fetch Patients
   useEffect(() => {
-    // Fetch initial patients
-    api.getPatients().then(data => {
-      setState(prev => ({ ...prev, patients: data }));
-    }).catch(console.error);
+    async function fetchPatients() {
+      try {
+        const res = await fetch(API_URL);
+        if (res.ok) {
+          const data = await res.json();
+          setPatients(Array.isArray(data) ? data : []);
 
-    const unsub = DeviceBus.subscribe((msg) => {
-      if (msg.type !== 'reading') return;
-      const r = msg.payload;
-      setState((prev) => {
-        const pts = prev.patients.map((p) =>
-          (p._id || p.id) === r.patientId
-            ? {
-                ...p,
-                last: { ts: r.ts, value: r.value, tag: r.tag },
-                risk: r.value > 200 ? 'High' : p.risk,
-              }
-            : p
-        );
-        
-        // Find patient name for the update
-        const patient = prev.patients.find(p => (p._id || p.id) === r.patientId);
-        const updateWithInfo = { ...r, name: patient ? patient.name : 'Unknown' };
-        
-        const ups = [updateWithInfo, ...prev.updates].slice(0, 6);
-        const wk = prev.weekly.map((d) => ({
-          ...d,
-          avg: Math.max(70, Math.min(180, d.avg + (Math.random() * 8 - 4))),
-        }));
-        const last = prev.monthly[prev.monthly.length - 1];
-        const mo = prev.monthly.map((m) =>
-          m.month === last.month ? { ...m, reports: m.reports + 1 } : m
-        );
-        return {
-          ...prev,
-          patients: pts,
-          updates: ups,
-          weekly: wk,
-          monthly: mo,
-        };
-      });
-    });
-    return unsub;
-  }, [setState]);
+          // Select first patient by default if none selected
+          if (data.length > 0 && !selectedPatientId) {
+            setSelectedPatientId(data[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch patients", err);
+      } finally {
+        setLoadingPatients(false);
+      }
+    }
+    fetchPatients();
+  }, []);
+
+  const selectedPatient = patients.find(p => p.id === selectedPatientId);
+  const deviceId = selectedPatient?.device_id;
+
+  const { data, status, latest } = useGlucoseData(deviceId);
+
+  // Find previous reading for trend calculation
+  const previous = data.length > 1 ? data[data.length - 2] : null;
+
+  if (loadingPatients) {
+    return <div className="p-8 text-center text-gray-500">Loading dashboard...</div>;
+  }
+
+  if (patients.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto text-center py-20">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-600 mb-4">
+          <AlertCircle size={32} />
+        </div>
+        <h2 className="text-xl font-semibold text-gray-900">No Patients Found</h2>
+        <p className="text-gray-500 mt-2">Please go to the Patients page to add a patient.</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="grid xl:grid-cols-3 gap-5">
-      <div className="xl:col-span-3 grid md:grid-cols-4 gap-4">
-        <KPICard
-          title="Total Patients"
-          value={totals.total}
-          icon={Users}
-          tone="blue"
-        />
-        <KPICard
-          title="Uncontrolled"
-          value={totals.uncontrolled}
-          icon={ShieldCheck}
-          tone="amber"
-        />
-        <KPICard
-          title="Type 2"
-          value={totals.type2}
-          icon={Activity}
-          tone="emerald"
-        />
-        <KPICard
-          title="High Risk"
-          value={totals.highRisk}
-          icon={HeartPulse}
-          tone="rose"
-        />
-      </div>
+    <div className="max-w-7xl mx-auto">
+      <header className="mb-8 flex justify-between items-start md:items-center flex-col md:flex-row gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
+          <p className="text-gray-500 mt-1">Real-time monitoring</p>
+        </div>
 
-      <div className="xl:col-span-2 grid gap-5">
-        <ActiveUpdatesTable updates={updates} />
-        <PatientDetails patients={patients.slice(0, 6)} />
-      </div>
+        {/* Patient Selector */}
+        <div className="relative">
+          <select
+            value={selectedPatientId}
+            onChange={(e) => setSelectedPatientId(e.target.value)}
+            className="appearance-none bg-white border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-64 p-2.5 pr-8 shadow-sm cursor-pointer outline-none"
+          >
+            {patients.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.id})
+              </option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+            <ChevronDown size={16} />
+          </div>
+        </div>
+      </header>
 
-      <div className="grid gap-5">
-        <WeeklyChart data={weekly} />
-        <MonthlyChart data={monthly} />
-        <DeviceSimulator patients={patients} />
-      </div>
+      {/* Patient Info Banner */}
+      {selectedPatient && (
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex items-center justify-between">
+          <div>
+            <div className="text-sm text-blue-600 font-medium">Active Patient</div>
+            <div className="text-lg font-bold text-gray-900">{selectedPatient.name}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-blue-500 uppercase font-semibold tracking-wide">Device ID</div>
+            <div className="font-mono text-gray-700">{selectedPatient.device_id || 'No Device Linked'}</div>
+          </div>
+        </div>
+      )}
+
+      {status === "error" ? (
+        <div className="p-4 mb-6 bg-red-50 text-red-700 rounded-lg border border-red-100">
+          Failed to load data for device {deviceId}.
+        </div>
+      ) : !deviceId ? (
+        <div className="p-8 mb-6 bg-yellow-50 text-yellow-800 rounded-lg border border-yellow-100 text-center">
+          This patient does not have a linked device. Please update their profile in the Patients tab.
+        </div>
+      ) : (
+        <>
+          <StatsCards latest={latest} previous={previous} />
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+            <div className="lg:col-span-2 space-y-6">
+              <GlucoseChart data={data} />
+            </div>
+
+            <div className="space-y-6">
+              {/* Sidebar Widgets */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-96">
+                <h3 className="text-sm font-medium text-gray-500 mb-4">Recent Alerts</h3>
+                <div className="space-y-4">
+                  <AlertItem type="hypo" time="10:30 AM" msg="Low Glucose (68 mg/dL)" />
+                  <AlertItem type="info" time="08:00 AM" msg="Sensor Calibration Complete" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
+}
+
+function AlertItem({ type, time, msg }) {
+  const colors = type === 'hypo' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-blue-50 text-blue-700 border-blue-100';
+  return (
+    <div className={`p-3 rounded-lg border ${colors} text-sm flex justify-between items-start`}>
+      <span>{msg}</span>
+      <span className="text-xs opacity-70 ml-2 whitespace-nowrap">{time}</span>
+    </div>
+  )
 }

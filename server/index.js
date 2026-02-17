@@ -1,14 +1,23 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const http = require('http'); // Import http
 require('dotenv').config();
 
+const { initSocket } = require('./lib/socket');
+const { db } = require('./lib/db'); // Ensure DB init triggers
+
 const app = express();
-const PORT = process.env.PORT || 5000;
+const server = http.createServer(app); // Create HTTP server
+
+const PORT = process.env.PORT || 5050;
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+
+// Initialize Socket.io
+initSocket(server);
 
 // Routes
 const patientsRouter = require('./routes/patients');
@@ -22,10 +31,10 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/followups', followupsRouter);
 
 app.get('/', (req, res) => {
-  res.send('Diablex API is running');
+  res.send('Diablex API is running (SQLite Mode)');
 });
 
 // Start Server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
