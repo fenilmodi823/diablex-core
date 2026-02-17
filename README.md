@@ -1,7 +1,5 @@
 ﻿# Diablex - Connected Diabetes Care Platform
 
-![Status](https://img.shields.org/badge/Status-Development-blue) ![Version](https://img.shields.org/badge/Version-0.1.0-green) ![License](https://img.shields.org/badge/License-MIT-lightgrey)
-
 ## Next-Generation Clinical Dashboard for Continuous Glucose Monitoring (CGM)
 
 Diablex is an advanced healthcare platform designed to bridge the gap between patients and clinicians. By leveraging real-time data ingestion, intelligent analytics, and a user-centric dashboard, Diablex empowers healthcare providers to monitor diabetic patients proactively and intervene effectively.
@@ -65,7 +63,7 @@ Follow these instructions to set up the project locally for development and test
 1. **Clone the Repository**
 
     ```bash
-    git clone https://github.com/your-username/diablex-core.git
+    git clone https://github.com/fenilmodi823/diablex-core.git
     cd diablex-core
     ```
 
