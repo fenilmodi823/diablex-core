@@ -8,6 +8,11 @@ Diablex is an advanced healthcare platform designed to bridge the gap between pa
 
 ## 🚀 Key Features
 
+### 📸 Dashboard Experience
+
+![Diablex Dashboard](docs/screenshot.png)
+*Real-time glucose monitoring with safe-zone analysis.*
+
 ### 1. **Real-Time Patient Monitoring**
 
 - **Live Glucose Stream**: Visualize glucose levels in real-time with sub-second latency.
